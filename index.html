@@ -147,6 +147,9 @@ input[type="number"]{width:70px;text-align:center}textarea{resize:vertical;min-h
 .modal h2{font-size:22px;margin-bottom:16px}.modal-actions{display:flex;gap:8px;margin-top:20px}.modal-actions .btn{flex:1}
 .theme-btn{width:34px;height:34px;border-radius:50%;border:var(--border-w) solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px;box-shadow:var(--shadow);flex-shrink:0}
 .theme-btn:active{background:var(--surface2)}
+.sync-btn{display:none}.sync-btn.visible{display:flex}
+.sync-btn.syncing{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .theme-option{padding:10px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .15s}
 .theme-option:active{transform:scale(.97)}.theme-option.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
@@ -236,7 +239,7 @@ input[type="file"]{display:none}
 
 <!-- TIMER -->
 <div id="page-timer" class="page active">
-  <div class="page-header"><div class="page-header-left"><h1>🍅 Pomodoro</h1><p id="timer-date"></p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
+  <div class="page-header"><div class="page-header-left"><h1>🍅 Pomodoro</h1><p id="timer-date"></p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn sync-btn" data-action="cloud-sync" title="Sync data">🔄</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
   <div class="timer-container">
     <div class="pomo-counter" id="pomo-set-counter"><div class="pomo-counter-dot current"></div><div class="pomo-counter-dot"></div><div class="pomo-counter-dot"></div><div class="pomo-counter-dot"></div></div>
     <div class="timer-ring-wrapper"><svg class="timer-ring" viewBox="0 0 200 200"><circle class="timer-ring-bg" cx="100" cy="100" r="90"/><circle class="timer-ring-progress" id="timer-progress" cx="100" cy="100" r="90" stroke-dasharray="565.49" stroke-dashoffset="0"/></svg><div class="timer-display"><div class="timer-time" id="timer-time">25:00</div><div class="timer-label" id="timer-mode-label">FOCUS</div></div></div>
@@ -258,7 +261,7 @@ input[type="file"]{display:none}
 
 <!-- TODAY -->
 <div id="page-today" class="page">
-  <div class="page-header"><div class="page-header-left"><h1>To Do Today</h1><p id="today-date"></p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
+  <div class="page-header"><div class="page-header-left"><h1>To Do Today</h1><p id="today-date"></p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn sync-btn" data-action="cloud-sync" title="Sync data">🔄</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
   <div class="section">
     <div class="legend">
       <div class="legend-item"><div class="sq" style="width:12px;height:12px;cursor:default;"></div> 1st □</div>
@@ -279,7 +282,7 @@ input[type="file"]{display:none}
 
 <!-- INVENTORY (no estimate input — just name) -->
 <div id="page-inventory" class="page">
-  <div class="page-header"><div class="page-header-left"><h1>Activity Inventory</h1><p>Master backlog</p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
+  <div class="page-header"><div class="page-header-left"><h1>Activity Inventory</h1><p>Master backlog</p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn sync-btn" data-action="cloud-sync" title="Sync data">🔄</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
   <div class="section">
     <div class="input-row">
       <input type="text" id="inv-task-input" placeholder="Add activity…">
@@ -292,7 +295,7 @@ input[type="file"]{display:none}
 
 <!-- RECORDS -->
 <div id="page-records" class="page">
-  <div class="page-header"><div class="page-header-left"><h1>Records</h1><p>Track & visualize</p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
+  <div class="page-header"><div class="page-header-left"><h1>Records</h1><p>Track & visualize</p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn sync-btn" data-action="cloud-sync" title="Sync data">🔄</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
   <div class="stat-grid">
     <div class="stat-card"><div class="stat-value" id="stat-today">0</div><div class="stat-label">Today</div></div>
     <div class="stat-card"><div class="stat-value" id="stat-total">0</div><div class="stat-label">All Time</div></div>
@@ -315,7 +318,7 @@ input[type="file"]{display:none}
 
 <!-- RULES -->
 <div id="page-guide" class="page">
-  <div class="page-header"><div class="page-header-left"><h1>Rules</h1><p>The method</p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
+  <div class="page-header"><div class="page-header-left"><h1>Rules</h1><p>The method</p></div><div style="display:flex;gap:8px;align-items:flex-start;"><button class="theme-btn user-btn" data-action="open-identity">👤</button><button class="theme-btn sync-btn" data-action="cloud-sync" title="Sync data">🔄</button><button class="theme-btn" data-action="open-theme">🎨</button></div></div>
   <div class="section">
     <div class="card"><h3 style="color:var(--accent-glow);font-size:16px;margin-bottom:8px;">The 5 Stages</h3><p style="font-size:13px;color:var(--text2);line-height:1.7;"><strong style="color:var(--text1);">1. Planning</strong> — Pick tasks, estimate.<br><br><strong style="color:var(--text1);">2. Tracking</strong> — Mark ✕ and interruptions.<br><br><strong style="color:var(--text1);">3. Recording</strong> — Save end-of-day.<br><br><strong style="color:var(--text1);">4. Processing</strong> — Compare est. vs actual.<br><br><strong style="color:var(--text1);">5. Visualizing</strong> — Find patterns.</p></div>
     <div class="card"><h3 style="color:var(--accent-glow);font-size:16px;margin-bottom:8px;">Core Rules</h3><p style="font-size:13px;color:var(--text2);line-height:1.7;"><strong style="color:var(--text1);">Indivisible.</strong> 25 min.<br><br><strong style="color:var(--text1);">Must ring.</strong> Stop early = void.<br><br><strong style="color:var(--text1);">Done early?</strong> Review until ring.<br><br><strong style="color:var(--text1);">After 4,</strong> long break.<br><br><strong style="color:var(--text1);">>7?</strong> Break down. <strong style="color:var(--text1);"><1?</strong> Combine.</p></div>
@@ -517,6 +520,7 @@ document.addEventListener('click',function(e){
   else if(action==='set-theme'){curTheme=el.dataset.id;applyTheme();renderThemeGrid();}
   else if(action==='open-theme'){renderThemeGrid();document.getElementById('modal-theme').classList.add('open');}
   else if(action==='open-identity'){if(typeof netlifyIdentity!=='undefined')netlifyIdentity.open();}
+  else if(action==='cloud-sync'){manualSync(el);}
 });
 
 /* ═══════════════════════════════════════ */
@@ -831,6 +835,21 @@ function updateUserBtns(){
   const user=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();
   const label=user?(user.user_metadata&&user.user_metadata.full_name?user.user_metadata.full_name[0]:user.email[0]).toUpperCase():'👤';
   document.querySelectorAll('.user-btn').forEach(b=>{b.textContent=label;b.title=user?user.email:'Sign in';});
+  document.querySelectorAll('.sync-btn').forEach(b=>{b.classList.toggle('visible',!!user);});
+}
+async function manualSync(btn){
+  const user=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();
+  if(!user)return;
+  document.querySelectorAll('.sync-btn').forEach(b=>b.classList.add('syncing'));
+  try{
+    const cloud=await cloudLoad();
+    if(cloud){
+      const ct=cloud.lastModified||0,lt=D.lastModified||0;
+      if(ct>lt){D=cloud;try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});renderAll();}
+      else{await cloudSave();}
+    }else{await cloudSave();}
+  }catch(e){console.warn('Sync failed:',e);}
+  document.querySelectorAll('.sync-btn').forEach(b=>b.classList.remove('syncing'));
 }
 if(typeof netlifyIdentity!=='undefined'){
   netlifyIdentity.on('init',async u=>{if(u)await switchUserData(true);updateUserBtns();});
