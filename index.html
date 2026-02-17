@@ -148,8 +148,12 @@ input[type="number"]{width:70px;text-align:center}textarea{resize:vertical;min-h
 .theme-btn{width:34px;height:34px;border-radius:50%;border:var(--border-w) solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px;box-shadow:var(--shadow);flex-shrink:0}
 .theme-btn:active{background:var(--surface2)}
 .sync-btn{display:none}.sync-btn.visible{display:flex}
-.sync-btn.syncing{animation:spin .8s linear infinite}
+.sync-btn.syncing{animation:spin .8s linear infinite;pointer-events:none;opacity:.6}
 @keyframes spin{to{transform:rotate(360deg)}}
+.sync-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:var(--radius-sm);font-family:var(--font-b);font-size:14px;font-weight:500;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
+.sync-toast.show{opacity:1}
+.sync-toast.ok{background:var(--green);color:#fff}
+.sync-toast.fail{background:var(--void-red);color:#fff}
 .theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .theme-option{padding:10px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .15s}
 .theme-option:active{transform:scale(.97)}.theme-option.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
@@ -236,6 +240,7 @@ input[type="file"]{display:none}
 </style>
 </head>
 <body>
+<div id="sync-toast" class="sync-toast"></div>
 
 <!-- TIMER -->
 <div id="page-timer" class="page active">
@@ -393,13 +398,18 @@ function save(){D.lastModified=Date.now();try{localStorage.setItem(getSK(),JSON.
 /* ── Cloud sync ── */
 let _cloudTimer;
 function debouncedCloudSave(){clearTimeout(_cloudTimer);_cloudTimer=setTimeout(cloudSave,2000);}
+function showSyncToast(msg,ok){
+  const t=document.getElementById('sync-toast');t.textContent=msg;
+  t.className='sync-toast '+(ok?'ok':'fail')+' show';
+  clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
+}
 async function cloudSave(){
-  const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();if(!u)return;
-  try{const tk=await u.jwt();await fetch('/.netlify/functions/user-data',{method:'POST',headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'},body:JSON.stringify(D)});}catch(e){console.warn('Cloud save failed:',e);}
+  const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();if(!u)return false;
+  try{const tk=await u.jwt();const r=await fetch('/.netlify/functions/user-data',{method:'POST',headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'},body:JSON.stringify(D)});return r.ok;}catch(e){console.warn('Cloud save failed:',e);return false;}
 }
 async function cloudLoad(){
   const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();if(!u)return null;
-  try{const tk=await u.jwt();const r=await fetch('/.netlify/functions/user-data',{headers:{'Authorization':'Bearer '+tk}});if(r.ok){const d=await r.json();return d;}}catch(e){console.warn('Cloud load failed:',e);}return null;
+  try{const tk=await u.jwt();const r=await fetch('/.netlify/functions/user-data',{headers:{'Authorization':'Bearer '+tk}});if(r.ok){const d=await r.json();return d;}else{console.warn('Cloud load status:',r.status);return null;}}catch(e){console.warn('Cloud load failed:',e);return null;}
 }
 async function switchUserData(migrateAnon){
   const sk=getSK();
@@ -839,16 +849,25 @@ function updateUserBtns(){
 }
 async function manualSync(btn){
   const user=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();
-  if(!user)return;
+  if(!user){showSyncToast('Sign in to sync',false);return;}
   document.querySelectorAll('.sync-btn').forEach(b=>b.classList.add('syncing'));
   try{
     const cloud=await cloudLoad();
     if(cloud){
       const ct=cloud.lastModified||0,lt=D.lastModified||0;
-      if(ct>lt){D=cloud;try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});renderAll();}
-      else{await cloudSave();}
-    }else{await cloudSave();}
-  }catch(e){console.warn('Sync failed:',e);}
+      if(ct>lt){
+        D=cloud;try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}
+        D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});renderAll();
+        showSyncToast('Pulled from cloud',true);
+      }else{
+        const ok=await cloudSave();
+        showSyncToast(ok?'Pushed to cloud':'Sync failed',ok);
+      }
+    }else{
+      const ok=await cloudSave();
+      showSyncToast(ok?'Pushed to cloud':'Sync failed — check deploy',ok);
+    }
+  }catch(e){console.warn('Sync failed:',e);showSyncToast('Sync failed',false);}
   document.querySelectorAll('.sync-btn').forEach(b=>b.classList.remove('syncing'));
 }
 if(typeof netlifyIdentity!=='undefined'){
