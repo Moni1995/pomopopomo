@@ -254,7 +254,7 @@ input[type="file"]{display:none}
 </div>
 
 <!-- MODALS -->
-<div class="modal-overlay" id="modal-inv-picker"><div class="modal"><h2>Pick from Inventory</h2><div id="inv-picker-list"></div><div class="modal-actions"><button class="btn btn-ghost" id="btn-close-picker">Cancel</button></div></div></div>
+<div class="modal-overlay" id="modal-inv-picker"><div class="modal"><h2>Pick from Inventory</h2><div id="inv-picker-list"></div><div id="picker-est-row" style="display:none;margin-top:12px;"><div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Initial estimate (Pomodoros):</div><div class="input-row"><input type="number" id="picker-est-input" placeholder="🍅" min="1" max="20" style="width:70px;"><button class="btn btn-primary" id="btn-confirm-pick">Add to Today</button></div></div><div class="modal-actions"><button class="btn btn-ghost" id="btn-close-picker">Cancel</button></div></div></div>
 <div class="modal-overlay" id="modal-theme"><div class="modal"><h2>🎨 Theme</h2><div class="section-subtitle">Style</div><div class="theme-grid" id="theme-grid"></div><div class="section-subtitle">Mode</div><div class="mode-toggle"><button class="mode-toggle-btn" data-mode="dark" id="mode-dark">🌙 Dark</button><button class="mode-toggle-btn" data-mode="light" id="mode-light">☀️ Light</button></div><div class="modal-actions"><button class="btn btn-ghost" id="btn-close-theme">Done</button></div></div></div>
 
 <!-- NAV -->
@@ -321,6 +321,7 @@ D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});
 D.today.forEach(mig);
 const TODAY=new Date().toISOString().split('T')[0];
 if(D.todayDate!==TODAY){D.todayDate=TODAY;D.todayPomos=0;D.setCount=0;save();}
+let pickerSelectedId=null;
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function fmtDate(d){return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
@@ -356,10 +357,12 @@ function renderShapesRow(id,src,lv,count,filled){
 }
 
 function renderAllShapes(t,src){
-  let h=renderShapesRow(t.id,src,1,t.estimate||0,t.actual1||0);
+  let h='';
+  if((t.estimate||0)>0){h+=renderShapesRow(t.id,src,1,t.estimate,t.actual1||0);}
+  else{h+=`<button class="est-adj-btn est-adj-btn-wide" data-action="adj-est" data-id="${t.id}" data-src="${src}" data-level="1" data-delta="1">+ □ Est.</button>`;}
   if((t.est2||0)>0||(t.actual2||0)>0)h+=renderShapesRow(t.id,src,2,t.est2||0,t.actual2||0);
   if((t.est3||0)>0||(t.actual3||0)>0)h+=renderShapesRow(t.id,src,3,t.est3||0,t.actual3||0);
-  if((t.est2||0)===0&&(t.actual2||0)===0)h+=`<button class="est-adj-btn est-adj-btn-wide" data-action="adj-est" data-id="${t.id}" data-src="${src}" data-level="2" data-delta="1">+ ○ 2nd est.</button>`;
+  if((t.estimate||0)>0&&(t.est2||0)===0&&(t.actual2||0)===0)h+=`<button class="est-adj-btn est-adj-btn-wide" data-action="adj-est" data-id="${t.id}" data-src="${src}" data-level="2" data-delta="1">+ ○ 2nd est.</button>`;
   if((t.est2||0)>0&&(t.est3||0)===0&&(t.actual3||0)===0)h+=`<button class="est-adj-btn est-adj-btn-wide" style="margin-left:4px;" data-action="adj-est" data-id="${t.id}" data-src="${src}" data-level="3" data-delta="1">+ △ 3rd est.</button>`;
   return h;
 }
@@ -408,7 +411,7 @@ document.addEventListener('click',function(e){
   else if(action==='remove-inv'){D.inventory=D.inventory.filter(t=>t.id!==id);save();renderInventory();}
   else if(action==='send-today'){sendToToday(id);}
   else if(action==='select-timer-task'){D.selectedTaskId=id;save();renderTimerTaskList();}
-  else if(action==='pick-inv'){sendToToday(id);document.getElementById('modal-inv-picker').classList.remove('open');}
+  else if(action==='pick-inv'){pickerSelectedId=id;document.querySelectorAll('#inv-picker-list .task-option').forEach(o=>o.classList.toggle('selected',o.dataset.id===id));document.getElementById('picker-est-row').style.display='block';document.getElementById('picker-est-input').focus();}
   else if(action==='toggle-unplanned'){const t=D.unplanned.find(x=>x.id===id);if(t){t.completed=!t.completed;save();renderUnplanned();}}
   else if(action==='toggle-review'){const area=document.getElementById('review-'+id);if(area)area.classList.toggle('open');}
   else if(action==='save-review'){
@@ -430,10 +433,10 @@ function addInventoryTask(){
   D.inventory.push({id:uid(),name,completed:false,review:''});
   inp.value='';save();renderInventory();inp.focus();
 }
-function sendToToday(invId){
+function sendToToday(invId,est){
   const task=D.inventory.find(t=>t.id===invId);if(!task)return;
   if(D.today.some(t=>t.invId===invId)){alert('Already on list.');return;}
-  D.today.push({id:uid(),invId,name:task.name,estimate:0,est2:0,est3:0,actual1:0,actual2:0,actual3:0,internalInt:0,externalInt:0,completed:false,review:task.review||''});
+  D.today.push({id:uid(),invId,name:task.name,estimate:est||0,est2:0,est3:0,actual1:0,actual2:0,actual3:0,internalInt:0,externalInt:0,completed:false,review:task.review||''});
   save();renderToday();renderTimerTaskList();
 }
 function renderInventory(){
@@ -483,7 +486,10 @@ function renderToday(){
 function addUnplannedTask(){const inp=document.getElementById('unplanned-input');const name=inp.value.trim();if(!name)return;D.unplanned.push({id:uid(),name,completed:false});inp.value='';save();renderUnplanned();}
 function renderUnplanned(){document.getElementById('unplanned-tasks').innerHTML=D.unplanned.map(t=>`<div class="task-item ${t.completed?'completed':''}"><div class="task-check ${t.completed?'checked':''}" data-action="toggle-unplanned" data-id="${t.id}"></div><div class="task-content"><div class="task-name">${esc(t.name)}</div><div class="task-meta"><span class="tag tag-urgent">⚡ Unplanned</span></div></div></div>`).join('');}
 function openInventoryPicker(){
+  pickerSelectedId=null;
   const list=document.getElementById('inv-picker-list');
+  const estRow=document.getElementById('picker-est-row');
+  estRow.style.display='none';document.getElementById('picker-est-input').value='';
   const avail=D.inventory.filter(t=>!t.completed&&!D.today.some(td=>td.invId===t.id));
   list.innerHTML=!avail.length?'<div class="empty-state" style="padding:20px;"><p>No available tasks.</p></div>':
     avail.map(t=>`<div class="task-option" data-action="pick-inv" data-id="${t.id}"><div class="task-option-radio"></div><div><div class="task-option-text">${esc(t.name)}</div></div></div>`).join('');
@@ -696,6 +702,8 @@ document.getElementById('btn-add-today').addEventListener('click',addTodayTask);
 document.getElementById('btn-add-unplanned').addEventListener('click',addUnplannedTask);
 document.getElementById('btn-pick-inv').addEventListener('click',openInventoryPicker);
 document.getElementById('btn-close-picker').addEventListener('click',()=>document.getElementById('modal-inv-picker').classList.remove('open'));
+document.getElementById('btn-confirm-pick').addEventListener('click',()=>{if(!pickerSelectedId)return;const est=parseInt(document.getElementById('picker-est-input').value)||0;if(est>7){alert('Break down tasks >7.');return;}sendToToday(pickerSelectedId,est);document.getElementById('modal-inv-picker').classList.remove('open');});
+document.getElementById('picker-est-input').addEventListener('keypress',e=>{if(e.key==='Enter')document.getElementById('btn-confirm-pick').click();});
 document.getElementById('btn-end-day').addEventListener('click',endDay);
 document.getElementById('btn-clear-day').addEventListener('click',clearToday);
 document.getElementById('btn-export').addEventListener('click',exportData);
