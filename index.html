@@ -405,11 +405,15 @@ function showSyncToast(msg,ok){
 }
 async function cloudSave(){
   const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();if(!u)return false;
-  try{const tk=await u.jwt();const r=await fetch('/.netlify/functions/user-data',{method:'POST',headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'},body:JSON.stringify(D)});return r.ok;}catch(e){console.warn('Cloud save failed:',e);return false;}
+  try{await u.update({data:{pomodoro:D}});return true;}catch(e){console.warn('Cloud save failed:',e);return false;}
 }
 async function cloudLoad(){
   const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();if(!u)return null;
-  try{const tk=await u.jwt();const r=await fetch('/.netlify/functions/user-data',{headers:{'Authorization':'Bearer '+tk}});if(r.ok){const d=await r.json();return d;}else{console.warn('Cloud load status:',r.status);return null;}}catch(e){console.warn('Cloud load failed:',e);return null;}
+  try{
+    const tk=await u.jwt();
+    const r=await fetch('/.netlify/identity/user',{headers:{'Authorization':'Bearer '+tk}});
+    if(r.ok){const usr=await r.json();return usr.user_metadata?.pomodoro||null;}
+  }catch(e){console.warn('Cloud load failed:',e);}return null;
 }
 async function switchUserData(migrateAnon){
   const sk=getSK();
