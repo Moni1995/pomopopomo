@@ -381,10 +381,12 @@ function renderThemeGrid(){
 /* ═══════════════════════════════════════ */
 /* DATA                                   */
 /* ═══════════════════════════════════════ */
-const SK='pomo_v6';
-function load(){try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}catch(e){}return fresh();}
+const SK_BASE='pomo_v6';
+function getSK(){const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();return u?SK_BASE+'_'+u.id:SK_BASE;}
+function load(){try{const r=localStorage.getItem(getSK());if(r)return JSON.parse(r);}catch(e){}return fresh();}
 function fresh(){return{inventory:[],today:[],unplanned:[],records:[],selectedTaskId:null,todayDate:new Date().toISOString().split('T')[0],todayPomos:0,setCount:0,totalPomos:0};}
-function save(){try{localStorage.setItem(SK,JSON.stringify(D));}catch(e){}}
+function save(){try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}}
+function switchUserData(migrateAnon){const sk=getSK();if(migrateAnon&&!localStorage.getItem(sk)){const ad=localStorage.getItem(SK_BASE);if(ad)localStorage.setItem(sk,ad);}D=load();D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});if(D.todayDate!==TODAY){D.todayDate=TODAY;D.todayPomos=0;D.setCount=0;save();}renderAll();}
 let D=load();
 function mig(t){if(t.actual1===undefined){t.actual1=t.actual||0;t.actual2=0;t.actual3=0;}if(t.est2===undefined)t.est2=0;if(t.est3===undefined)t.est3=0;if(t.review===undefined)t.review='';if(t.estimate===undefined)t.estimate=0;delete t.actual;return t;}
 D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});
@@ -809,9 +811,9 @@ function updateUserBtns(){
   document.querySelectorAll('.user-btn').forEach(b=>{b.textContent=label;b.title=user?user.email:'Sign in';});
 }
 if(typeof netlifyIdentity!=='undefined'){
-  netlifyIdentity.on('init',updateUserBtns);
-  netlifyIdentity.on('login',()=>{netlifyIdentity.close();updateUserBtns();});
-  netlifyIdentity.on('logout',updateUserBtns);
+  netlifyIdentity.on('init',u=>{if(u)switchUserData(true);updateUserBtns();});
+  netlifyIdentity.on('login',()=>{netlifyIdentity.close();switchUserData(true);updateUserBtns();});
+  netlifyIdentity.on('logout',()=>{switchUserData(false);updateUserBtns();});
 }
 </script>
 </body>
