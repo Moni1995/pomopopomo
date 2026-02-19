@@ -1,7 +1,17 @@
-const CACHE_NAME = 'pomodoro-v5';
+const CACHE_NAME = 'pomodoro-v6';
 const ASSETS = [
   '/',
   '/index.html',
+  '/css/styles.css',
+  '/js/app.js',
+  '/js/utils.js',
+  '/js/store.js',
+  '/js/audio.js',
+  '/js/theme.js',
+  '/js/shapes.js',
+  '/js/render.js',
+  '/js/timer.js',
+  '/js/chart.js',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
