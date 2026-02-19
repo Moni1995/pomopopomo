@@ -5,7 +5,7 @@
 import { D, save, replaceD, fresh, mig, load, getSK, TODAY, autoRecord,
          pickerSelectedId, setPickerSelectedId,
          showSyncToast, cloudSave, cloudLoad, switchUserData,
-         debouncedCloudSave } from './store.js';
+         debouncedCloudSave, ensureFields } from './store.js';
 import { uid, esc, fmtDate, totalActual, liveDate } from './utils.js';
 import { playTick } from './audio.js';
 import { applyTheme, renderThemeGrid, setCurTheme, setCurMode } from './theme.js';
@@ -268,16 +268,7 @@ function importData(file) {
       } else {
         replaceD(imported);
       }
-      D.inventory.forEach(t => { if (t.review === undefined) t.review = ''; });
-      D.today.forEach(mig);
-      if (!D.todayDate) D.todayDate = TODAY;
-      if (D.todayPomos === undefined) D.todayPomos = 0;
-      if (D.setCount === undefined) D.setCount = 0;
-      if (D.totalPomos === undefined) D.totalPomos = 0;
-      if (!D.unplanned) D.unplanned = [];
-      if (!D.records) D.records = [];
-      if (!D.completed) D.completed = [];
-      if (!D.trash) D.trash = [];
+      ensureFields();
       save(); renderAll(); renderChart();
       alert('Data imported successfully!');
     } catch (err) { alert('Error reading file: ' + err.message); }
@@ -313,10 +304,7 @@ async function manualSync() {
       if (ct > lt) {
         replaceD(cloud);
         try { localStorage.setItem(getSK(), JSON.stringify(D)); } catch (e) { /* ignore */ }
-        D.today.forEach(mig);
-        D.inventory.forEach(t => { if (t.review === undefined) t.review = ''; });
-        if (!D.completed) D.completed = [];
-        if (!D.trash) D.trash = [];
+        ensureFields();
         renderAll();
         showSyncToast('Pulled from cloud', true);
       } else {
@@ -398,9 +386,20 @@ updateControlsUI();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registered:', reg.scope))
+      .then(reg => {
+        console.log('SW registered:', reg.scope);
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (nw) nw.addEventListener('statechange', () => {
+            if (nw.state === 'activated' && navigator.serviceWorker.controller) {
+              window.location.reload();
+            }
+          });
+        });
+      })
       .catch(err => console.log('SW registration failed:', err));
   });
+  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
 }
 
 // Netlify Identity
