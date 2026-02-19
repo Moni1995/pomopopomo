@@ -619,7 +619,7 @@ const btnStart=document.getElementById('btn-start'),btnVoid=document.getElementB
 const intRow=document.getElementById('interrupt-row'),vBanner=document.getElementById('void-banner');
 tProg.style.strokeDasharray=CIRC;
 
-function updateTimerDisplay(){const m=Math.floor(timeLeft/60),s=timeLeft%60;tTimeEl.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;tProg.style.strokeDashoffset=CIRC*(1-(1-timeLeft/totalTime));tProg.classList.toggle('break-mode',tMode==='break');}
+function updateTimerDisplay(){const m=Math.floor(timeLeft/60),s=timeLeft%60;const ts=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;tTimeEl.textContent=ts;tProg.style.strokeDashoffset=CIRC*(timeLeft/totalTime);tProg.classList.toggle('break-mode',tMode==='break');document.title=tState==='running'?`${ts} — Pomodoro`:'Pomodoro Planner';}
 function renderTimerTaskList(){
   const c=document.getElementById('timer-task-list'),e=document.getElementById('timer-empty');
   const active=D.today.filter(t=>!t.completed);
@@ -631,7 +631,7 @@ function renderTimerTaskList(){
 }
 function updateTTD(){const t=D.today.find(x=>x.id===D.selectedTaskId);const n=document.getElementById('timer-task-name'),s=document.getElementById('timer-task-sub');if(t){n.textContent=t.name;const be=t.est3||t.est2||t.estimate;const ta=totalActual(t);s.textContent=`${ta}${be?'/'+be:''} Pomodoros`;}else{n.textContent='Select a task';s.textContent='Choose from Today list';}}
 
-function startTimer(){vBanner.style.display='none';if(tMode==='work'&&!D.selectedTaskId){alert('Select a task.');return;}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();if(tState==='paused'){tState='running';updateControlsUI();tInterval=setInterval(tick,1000);return;}tState='running';updateControlsUI();tInterval=setInterval(tick,1000);}
+function startTimer(){vBanner.style.display='none';if(tMode==='work'&&!D.selectedTaskId){alert('Select a task.');return;}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();if(tState==='paused'){tState='running';updateControlsUI();tInterval=setInterval(tick,1000);return;}tState='running';updateControlsUI();tInterval=setInterval(tick,1000);}
 function pauseTimer(){tState='paused';clearInterval(tInterval);updateControlsUI();}
 function tick(){timeLeft--;if(timeLeft<=0){clearInterval(tInterval);timerComplete();return;}updateTimerDisplay();}
 
@@ -641,10 +641,11 @@ function autoFillNext(t){
   if((t.actual3||0)<(t.est3||0)){t.actual3=(t.actual3||0)+1;return;}
   t.estimate=(t.estimate||0)+1;t.actual1=(t.actual1||0)+1;
 }
+function notifyUser(msg){try{if('Notification' in window&&Notification.permission==='granted')new Notification('Pomodoro',{body:msg,icon:'/icons/icon-192x192.png'});}catch(e){}}
 function timerComplete(){
   playRing();
-  if(tMode==='work'){const t=D.today.find(x=>x.id===D.selectedTaskId);if(t)autoFillNext(t);D.todayPomos++;D.totalPomos++;D.setCount++;save();if(navigator.vibrate)navigator.vibrate([200,100,200]);if(D.setCount>=4){tMode='break';timeLeft=LB;totalTime=LB;tModeLabel.textContent='LONG BREAK';D.setCount=0;}else{tMode='break';timeLeft=SB;totalTime=SB;tModeLabel.textContent='SHORT BREAK';}}
-  else{tMode='work';timeLeft=WT;totalTime=WT;tModeLabel.textContent='FOCUS';}
+  if(tMode==='work'){const t=D.today.find(x=>x.id===D.selectedTaskId);if(t)autoFillNext(t);D.todayPomos++;D.totalPomos++;D.setCount++;save();if(navigator.vibrate)navigator.vibrate([200,100,200]);notifyUser('Pomodoro complete! Time for a break.');if(D.setCount>=4){tMode='break';timeLeft=LB;totalTime=LB;tModeLabel.textContent='LONG BREAK';D.setCount=0;}else{tMode='break';timeLeft=SB;totalTime=SB;tModeLabel.textContent='SHORT BREAK';}}
+  else{notifyUser('Break over! Ready to focus.');tMode='work';timeLeft=WT;totalTime=WT;tModeLabel.textContent='FOCUS';}
   tState='idle';save();updateTimerDisplay();updateControlsUI();renderTimerTaskList();renderToday();updateSetCounter();updateStats();renderChart();
 }
 function voidPomodoro(){if(tMode!=='work')return;if(!confirm('Void this Pomodoro?'))return;clearInterval(tInterval);tState='idle';tMode='work';timeLeft=WT;totalTime=WT;tModeLabel.textContent='FOCUS';vBanner.style.display='block';updateTimerDisplay();updateControlsUI();}
@@ -764,6 +765,9 @@ function updateStats(){
     const tot=D.records.reduce((s,r)=>s+r.pomos,0);
     document.getElementById('stat-avg').textContent=Math.round(tot/D.records.length*10)/10;
     let streak=0,cd=new Date();
+    const hasToday=D.records.some(r=>r.date===TODAY);
+    if(!hasToday&&D.todayPomos>0){streak=1;cd.setDate(cd.getDate()-1);}
+    else if(!hasToday){cd.setDate(cd.getDate()-1);}
     for(let i=0;i<365;i++){const d=cd.toISOString().split('T')[0];if(D.records.some(r=>r.date===d)){streak++;cd.setDate(cd.getDate()-1);}else break;}
     document.getElementById('stat-streak').textContent=streak;
   }
