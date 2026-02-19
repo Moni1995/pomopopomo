@@ -1,84 +1,81 @@
-# 🍅 Pomodoro Planner — PWA Deployment Guide
+# Pomodoro Planner
 
-## What's in this folder
+A complete Pomodoro Technique web app — plan, focus, track, and review. Single-file PWA, zero dependencies.
+
+## Features
+
+- **Activity Inventory** — Master backlog of tasks. Add tasks, then move them to Today when ready.
+- **To Do Today** — Plan your day with Pomodoro estimates (1st/2nd/3rd re-estimation levels). Track unplanned & urgent tasks separately.
+- **Focus Timer** — 25-minute work sessions with 5-minute short breaks and 20-minute long breaks (every 4th). Void or skip as needed.
+- **Interrupt Tracking** — Mark internal (self-interruptions) and external interrupts during focus sessions.
+- **Auto-Recording** — Pomodoros are automatically logged to daily records as they happen. Each pomodoro is attributed to the correct day, even for tasks spanning multiple days.
+- **Completed Folder** — Finished inventory tasks move to a dedicated Completed section. Reopen or trash them anytime.
+- **Trash & Restore** — Deleted tasks go to Trash instead of being lost forever. Restore to inventory or permanently delete.
+- **Records & Charts** — Daily pomodoro bar chart (last 14 days), streak counter, daily average, all-time total.
+- **9 Color Themes** — Dark and light modes with 9 palettes (Ember, Ocean, Sage, Lavender, Rose, Slate, Copper, Midnight, Sand).
+- **Cloud Sync** — Sign in with Netlify Identity to sync data across devices.
+- **Browser Notifications** — Get notified when a pomodoro or break ends, even if the tab is in the background.
+- **Tab Timer** — Remaining time shown in the browser tab title.
+- **PWA / Offline** — Install as a standalone app. Works offline after first visit.
+- **Export / Import** — Full JSON data export and import with merge support.
+
+## Quick Start
+
+No build step required. Just deploy the folder to any static host.
+
+### Netlify (recommended)
+1. Sign up at [netlify.com](https://netlify.com)
+2. Drag & drop this folder onto the Netlify dashboard
+3. Done — you get a URL like `your-app.netlify.app`
+
+### Other Options
+- **Vercel**: `npm i -g vercel && vercel`
+- **GitHub Pages**: Push to a repo, enable Pages in Settings
+- **Cloudflare Pages**: Connect repo, set build output to `/`
+
+## Project Structure
 
 ```
-pomodoro-pwa/
-├── index.html          ← The app (single file, all CSS/JS inline)
-├── manifest.json       ← PWA manifest (name, icons, theme)
-├── sw.js               ← Service worker (offline caching)
-├── icons/              ← App icons (72px to 512px + maskable)
-│   ├── icon-72x72.png
-│   ├── icon-96x96.png
-│   ├── icon-128x128.png
-│   ├── icon-144x144.png
-│   ├── icon-152x152.png
-│   ├── icon-192x192.png
-│   ├── icon-384x384.png
-│   ├── icon-512x512.png
-│   └── icon-maskable-512x512.png
-└── README.md           ← This file
+index.html        The entire app (HTML, CSS, JS inline)
+manifest.json     PWA manifest (name, icons, theme color)
+sw.js             Service worker (offline caching)
+icons/            App icons (72px to 512px + maskable)
+CHANGELOG.md      Version history
+CLAUDE.md         AI assistant context file
 ```
 
-## Quickest deployment options
+## How It Works
 
-### 1. Netlify (Free — recommended for starting out)
-1. Go to [netlify.com](https://netlify.com) and sign up
-2. Drag & drop this entire folder onto the Netlify dashboard
-3. Done. You get a URL like `pomodoro-planner.netlify.app`
-4. (Optional) Connect a custom domain in Site Settings → Domain Management
+### The Pomodoro Technique Flow
+1. **Plan** — Add tasks to your Activity Inventory
+2. **Estimate** — Move tasks to Today and set Pomodoro estimates
+3. **Focus** — Start the timer, work for 25 minutes without interruption
+4. **Record** — Pomodoros are auto-logged. Use "End Day" to archive when done.
+5. **Review** — Check Records for daily charts, streaks, and task reviews
 
-### 2. Vercel (Free)
-1. Install Vercel CLI: `npm i -g vercel`
-2. In this folder, run: `vercel`
-3. Follow prompts — deployed in seconds
+### Estimation Shapes
+Tasks support 3 levels of estimation, following the Pomodoro Technique:
+- **Squares** (1st estimate) — Your initial guess
+- **Circles** (2nd estimate) — Re-estimate if you ran over
+- **Triangles** (3rd estimate) — Final re-estimation
 
-### 3. GitHub Pages (Free)
-1. Create a new GitHub repo
-2. Push this folder's contents to the `main` branch
-3. Go to Settings → Pages → set source to `main` branch
-4. Your app lives at `yourusername.github.io/repo-name`
-5. Update `start_url` in manifest.json to match: `"/repo-name/index.html"`
+Shapes fill in as you complete pomodoros. If you exceed your estimate, extra squares are added automatically.
 
-### 4. Cloudflare Pages (Free)
-1. Push to GitHub/GitLab
-2. Connect repo in Cloudflare Pages dashboard
-3. Set build output to `/` (no build step needed)
-
-## How installation works
-
-Once deployed on HTTPS:
-- **Chrome/Edge (desktop):** Users see an install icon in the address bar → click to install
-- **Chrome (Android):** "Add to Home Screen" banner appears automatically after a few visits
-- **Safari (iOS):** Users tap Share → "Add to Home Screen"
-
-The service worker caches the app, so it works fully offline after first visit.
-
-## After deploying — testing the PWA
-
-1. Open Chrome DevTools → Application tab
-2. Check "Manifest" section — should show your app info and icons
-3. Check "Service Workers" section — should show sw.js registered
-4. Run a Lighthouse audit (Performance tab) — aim for a PWA badge ✅
+### Data Storage
+- All data stored in browser localStorage
+- Optional cloud sync via Netlify Identity (stores in user metadata)
+- Export/import JSON for backups or migration
 
 ## Customizing
 
-- **App name:** Edit `name` and `short_name` in `manifest.json`
-- **Colors:** Edit `background_color` and `theme_color` in `manifest.json`
-- **Icons:** Replace PNGs in `icons/` with your own designs (keep same filenames/sizes)
-- **Domain:** Update `start_url` in manifest.json if not serving from root
+- **App name**: Edit `name` and `short_name` in `manifest.json`
+- **Colors**: Edit `background_color` and `theme_color` in `manifest.json`
+- **Icons**: Replace PNGs in `icons/` (keep same filenames and sizes)
+- **Timer durations**: Modify `WT`, `SB`, `LB` constants in the JS section of `index.html`
 
-## Adding a paywall later
+## Tech Notes
 
-When you're ready to gate premium features:
-1. Add Stripe or Lemon Squeezy checkout
-2. Store a `premium: true` flag in localStorage after payment
-3. Gate features like analytics/charts, data export, and cloud sync behind that flag
-4. For server-side verification, add a simple API (Cloudflare Workers is free and fast)
-
-## Tech notes
-
-- **Zero dependencies** — no npm, no build step, no framework
-- **Single HTML file** — all CSS and JS are inline
-- **Offline-first** — localStorage for data, service worker for caching
-- **~65KB total** — loads instantly on any connection
+- Zero dependencies — no npm, no build, no framework
+- Single HTML file — all CSS and JS inline (~930 lines)
+- Offline-first — localStorage for data, service worker for caching
+- ~65KB total — loads instantly on any connection

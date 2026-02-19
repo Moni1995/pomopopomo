@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pomodoro-v4';
+const CACHE_NAME = 'pomodoro-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -33,6 +33,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
+  // Netlify Identity / API — always network, never cache
+  if (url.pathname.startsWith('/.netlify/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // Google Fonts — cache with network-first
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(

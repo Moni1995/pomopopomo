@@ -169,6 +169,20 @@ input[type="file"]{display:none}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.animate-in{animation:fadeIn .25s ease}
 
+/* ── Collapsible sections ── */
+.collapse-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);background:var(--surface2);border-radius:var(--radius-sm);border:var(--border-w) solid var(--border);margin-bottom:4px;-webkit-tap-highlight-color:transparent;transition:background .15s}
+.collapse-header:active{background:var(--border)}
+.collapse-chevron{font-size:11px;transition:transform .2s}
+.collapse-chevron.open{transform:rotate(90deg)}
+.collapse-body{display:none;padding-top:6px}
+.collapse-body.open{display:block}
+.trash-item,.completed-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:var(--border-w) solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px}
+.trash-item .task-name,.completed-item .task-name{font-size:13px;flex:1}
+.completed-item .task-name{text-decoration:line-through;color:var(--text3)}
+.trash-item .task-meta,.completed-item .task-meta{font-size:11px;color:var(--text3)}
+.restore-btn{padding:4px 10px;font-size:11px;font-weight:600;border-radius:var(--radius-sm);border:var(--border-w) solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:var(--font-b);transition:all .15s}
+.restore-btn:active{background:var(--border)}
+
 /* ═══════════════════════════════════════ */
 /* RESPONSIVE / DESKTOP                   */
 /* ═══════════════════════════════════════ */
@@ -296,6 +310,14 @@ input[type="file"]{display:none}
     <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:12px;">Add tasks here. Estimate Pomodoros when you move them to Today.</p>
   </div>
   <div class="section" style="padding-top:0;"><div id="inventory-tasks"></div><div class="empty-state" id="inv-empty"><p>Inventory empty.</p></div></div>
+  <div class="section" style="padding-top:0;">
+    <div class="collapse-header" data-action="toggle-collapse" data-target="completed-section"><span>Completed (<span id="completed-count">0</span>)</span><span class="collapse-chevron" id="completed-chevron">▸</span></div>
+    <div id="completed-section" class="collapse-body"><div id="completed-tasks"></div><div class="empty-state" id="completed-empty" style="padding:12px;"><p>No completed tasks.</p></div></div>
+  </div>
+  <div class="section" style="padding-top:0;">
+    <div class="collapse-header" data-action="toggle-collapse" data-target="trash-section"><span>Trash (<span id="trash-count">0</span>)</span><span class="collapse-chevron" id="trash-chevron">▸</span></div>
+    <div id="trash-section" class="collapse-body"><div id="trash-tasks"></div><div class="empty-state" id="trash-empty" style="padding:12px;"><p>Trash is empty.</p></div><button class="btn btn-ghost btn-sm" id="btn-empty-trash" style="width:100%;margin-top:8px;display:none;">Empty Trash</button></div>
+  </div>
 </div>
 
 <!-- RECORDS -->
@@ -392,7 +414,7 @@ function renderThemeGrid(){
 const SK_BASE='pomo_v6';
 function getSK(){const u=typeof netlifyIdentity!=='undefined'&&netlifyIdentity.currentUser();return u?SK_BASE+'_'+u.id:SK_BASE;}
 function load(){try{const r=localStorage.getItem(getSK());if(r)return JSON.parse(r);}catch(e){}return fresh();}
-function fresh(){return{inventory:[],today:[],unplanned:[],records:[],selectedTaskId:null,todayDate:new Date().toISOString().split('T')[0],todayPomos:0,setCount:0,totalPomos:0};}
+function fresh(){return{inventory:[],today:[],unplanned:[],records:[],completed:[],trash:[],selectedTaskId:null,todayDate:new Date().toISOString().split('T')[0],todayPomos:0,setCount:0,totalPomos:0};}
 function save(){D.lastModified=Date.now();try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}debouncedCloudSave();}
 
 /* ── Cloud sync ── */
@@ -427,9 +449,13 @@ async function switchUserData(migrateAnon){
   renderAll();
 }
 let D=load();
-function mig(t){if(t.actual1===undefined){t.actual1=t.actual||0;t.actual2=0;t.actual3=0;}if(t.est2===undefined)t.est2=0;if(t.est3===undefined)t.est3=0;if(t.review===undefined)t.review='';if(t.estimate===undefined)t.estimate=0;delete t.actual;return t;}
+function mig(t){if(t.actual1===undefined){t.actual1=t.actual||0;t.actual2=0;t.actual3=0;}if(t.est2===undefined)t.est2=0;if(t.est3===undefined)t.est3=0;if(t.review===undefined)t.review='';if(t.estimate===undefined)t.estimate=0;if(!t.dailyPomos)t.dailyPomos={};delete t.actual;return t;}
 D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});
 D.today.forEach(mig);
+if(!D.completed)D.completed=[];
+if(!D.trash)D.trash=[];
+D.completed.forEach(t=>{if(t.review===undefined)t.review='';});
+function liveDate(){return new Date().toISOString().split('T')[0];}
 const TODAY=new Date().toISOString().split('T')[0];
 if(D.todayDate!==TODAY){D.todayDate=TODAY;D.todayPomos=0;D.setCount=0;save();}
 let pickerSelectedId=null;
@@ -517,9 +543,21 @@ document.addEventListener('click',function(e){
     if(lv===1&&t[ek]>7)alert('Tasks >7 should be broken down.');
     save();if(src==='inv')renderInventory();else{renderToday();renderTimerTaskList();}
   }
-  else if(action==='toggle-done'){const t=D.today.find(x=>x.id===id);if(!t)return;t.completed=!t.completed;if(t.completed&&t.invId){const inv=D.inventory.find(x=>x.id===t.invId);if(inv)inv.completed=true;}save();renderToday();renderTimerTaskList();renderInventory();}
-  else if(action==='remove-today'){D.today=D.today.filter(t=>t.id!==id);if(D.selectedTaskId===id)D.selectedTaskId=null;save();renderToday();renderTimerTaskList();}
-  else if(action==='remove-inv'){D.inventory=D.inventory.filter(t=>t.id!==id);save();renderInventory();}
+  else if(action==='toggle-done'){
+    const t=D.today.find(x=>x.id===id);if(!t)return;t.completed=!t.completed;
+    if(t.invId){
+      if(t.completed){const idx=D.inventory.findIndex(x=>x.id===t.invId);if(idx>=0){const inv=D.inventory.splice(idx,1)[0];inv.completed=true;D.completed.push(inv);}}
+      else{const idx=D.completed.findIndex(x=>x.id===t.invId);if(idx>=0){const inv=D.completed.splice(idx,1)[0];inv.completed=false;D.inventory.push(inv);}}
+    }
+    save();renderToday();renderTimerTaskList();renderInventory();renderCompleted();
+  }
+  else if(action==='remove-today'){const t=D.today.find(x=>x.id===id);if(t){D.today=D.today.filter(x=>x.id!==id);t.deletedFrom='today';D.trash.push(t);}if(D.selectedTaskId===id)D.selectedTaskId=null;save();renderToday();renderTimerTaskList();renderTrash();}
+  else if(action==='remove-inv'){const idx=D.inventory.findIndex(t=>t.id===id);if(idx>=0){const t=D.inventory.splice(idx,1)[0];t.deletedFrom='inventory';D.trash.push(t);}save();renderInventory();renderTrash();}
+  else if(action==='remove-completed'){const idx=D.completed.findIndex(t=>t.id===id);if(idx>=0){const t=D.completed.splice(idx,1)[0];t.deletedFrom='completed';D.trash.push(t);}save();renderCompleted();renderTrash();}
+  else if(action==='uncomplete-inv'){const idx=D.completed.findIndex(t=>t.id===id);if(idx>=0){const t=D.completed.splice(idx,1)[0];t.completed=false;D.inventory.push(t);}save();renderInventory();renderCompleted();}
+  else if(action==='restore-trash'){const idx=D.trash.findIndex(t=>t.id===id);if(idx>=0){const t=D.trash.splice(idx,1)[0];delete t.deletedFrom;t.completed=false;D.inventory.push(t);}save();renderInventory();renderTrash();}
+  else if(action==='remove-trash'){D.trash=D.trash.filter(t=>t.id!==id);save();renderTrash();}
+  else if(action==='toggle-collapse'){const tgt=el.dataset.target;const body=document.getElementById(tgt);const chev=el.querySelector('.collapse-chevron');if(body){body.classList.toggle('open');if(chev)chev.classList.toggle('open');}}
   else if(action==='send-today'){sendToToday(id);}
   else if(action==='select-timer-task'){D.selectedTaskId=id;save();renderTimerTaskList();}
   else if(action==='pick-inv'){pickerSelectedId=id;document.querySelectorAll('#inv-picker-list .task-option').forEach(o=>o.classList.toggle('selected',o.dataset.id===id));document.getElementById('picker-est-row').style.display='block';document.getElementById('picker-est-input').focus();}
@@ -549,7 +587,7 @@ function addInventoryTask(){
 function sendToToday(invId,est){
   const task=D.inventory.find(t=>t.id===invId);if(!task)return;
   if(D.today.some(t=>t.invId===invId)){alert('Already on list.');return;}
-  D.today.push({id:uid(),invId,name:task.name,estimate:est||0,est2:0,est3:0,actual1:0,actual2:0,actual3:0,internalInt:0,externalInt:0,completed:false,review:task.review||''});
+  D.today.push({id:uid(),invId,name:task.name,estimate:est||0,est2:0,est3:0,actual1:0,actual2:0,actual3:0,internalInt:0,externalInt:0,completed:false,review:task.review||'',dailyPomos:{}});
   save();renderToday();renderTimerTaskList();
 }
 function renderInventory(){
@@ -569,6 +607,37 @@ function renderInventory(){
       </div>
     </div>`).join('');
 }
+function renderCompleted(){
+  const c=document.getElementById('completed-tasks'),e=document.getElementById('completed-empty');
+  document.getElementById('completed-count').textContent=D.completed.length;
+  if(!D.completed.length){c.innerHTML='';e.style.display='block';return;}
+  e.style.display='none';
+  c.innerHTML=D.completed.map(t=>`
+    <div class="completed-item animate-in">
+      <div style="flex:1;">
+        <div class="task-name">${esc(t.name)}</div>
+      </div>
+      <button class="restore-btn" data-action="uncomplete-inv" data-id="${t.id}" title="Move back to inventory">Reopen</button>
+      <button class="btn-icon btn-icon-sm" data-action="remove-completed" data-id="${t.id}" title="Move to trash"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>`).join('');
+}
+function renderTrash(){
+  const c=document.getElementById('trash-tasks'),e=document.getElementById('trash-empty'),eb=document.getElementById('btn-empty-trash');
+  document.getElementById('trash-count').textContent=D.trash.length;
+  if(!D.trash.length){c.innerHTML='';e.style.display='block';eb.style.display='none';return;}
+  e.style.display='none';eb.style.display='block';
+  c.innerHTML=D.trash.map(t=>{
+    const ta=totalActual(t);
+    return `<div class="trash-item animate-in">
+      <div style="flex:1;">
+        <div class="task-name">${esc(t.name)}</div>
+        <div class="task-meta">${ta?ta+' pomodoro'+(ta>1?'s':''):''} ${t.deletedFrom?'from '+t.deletedFrom:''}</div>
+      </div>
+      <button class="restore-btn" data-action="restore-trash" data-id="${t.id}">Restore</button>
+      <button class="btn-icon btn-icon-sm" data-action="remove-trash" data-id="${t.id}" title="Delete permanently"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>`;
+  }).join('');
+}
 
 /* ═══════════════════════════════════════ */
 /* TODAY                                  */
@@ -577,7 +646,7 @@ function addTodayTask(){
   const inp=document.getElementById('today-task-input'),ei=document.getElementById('today-est-input');
   const name=inp.value.trim();if(!name)return;const est=parseInt(ei.value)||0;
   if(est>7){alert('Break down tasks >7.');return;}
-  D.today.push({id:uid(),invId:null,name,estimate:est,est2:0,est3:0,actual1:0,actual2:0,actual3:0,internalInt:0,externalInt:0,completed:false,review:''});
+  D.today.push({id:uid(),invId:null,name,estimate:est,est2:0,est3:0,actual1:0,actual2:0,actual3:0,internalInt:0,externalInt:0,completed:false,review:'',dailyPomos:{}});
   inp.value='';ei.value='';save();renderToday();renderTimerTaskList();inp.focus();
 }
 function renderToday(){
@@ -603,7 +672,7 @@ function openInventoryPicker(){
   const list=document.getElementById('inv-picker-list');
   const estRow=document.getElementById('picker-est-row');
   estRow.style.display='none';document.getElementById('picker-est-input').value='';
-  const avail=D.inventory.filter(t=>!t.completed&&!D.today.some(td=>td.invId===t.id));
+  const avail=D.inventory.filter(t=>!D.today.some(td=>td.invId===t.id));
   list.innerHTML=!avail.length?'<div class="empty-state" style="padding:20px;"><p>No available tasks.</p></div>':
     avail.map(t=>`<div class="task-option" data-action="pick-inv" data-id="${t.id}"><div class="task-option-radio"></div><div><div class="task-option-text">${esc(t.name)}</div></div></div>`).join('');
   document.getElementById('modal-inv-picker').classList.add('open');
@@ -619,7 +688,7 @@ const btnStart=document.getElementById('btn-start'),btnVoid=document.getElementB
 const intRow=document.getElementById('interrupt-row'),vBanner=document.getElementById('void-banner');
 tProg.style.strokeDasharray=CIRC;
 
-function updateTimerDisplay(){const m=Math.floor(timeLeft/60),s=timeLeft%60;tTimeEl.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;tProg.style.strokeDashoffset=CIRC*(1-(1-timeLeft/totalTime));tProg.classList.toggle('break-mode',tMode==='break');}
+function updateTimerDisplay(){const m=Math.floor(timeLeft/60),s=timeLeft%60;const ts=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;tTimeEl.textContent=ts;tProg.style.strokeDashoffset=CIRC*(timeLeft/totalTime);tProg.classList.toggle('break-mode',tMode==='break');document.title=tState==='running'?`${ts} — Pomodoro`:'Pomodoro Planner';}
 function renderTimerTaskList(){
   const c=document.getElementById('timer-task-list'),e=document.getElementById('timer-empty');
   const active=D.today.filter(t=>!t.completed);
@@ -631,7 +700,7 @@ function renderTimerTaskList(){
 }
 function updateTTD(){const t=D.today.find(x=>x.id===D.selectedTaskId);const n=document.getElementById('timer-task-name'),s=document.getElementById('timer-task-sub');if(t){n.textContent=t.name;const be=t.est3||t.est2||t.estimate;const ta=totalActual(t);s.textContent=`${ta}${be?'/'+be:''} Pomodoros`;}else{n.textContent='Select a task';s.textContent='Choose from Today list';}}
 
-function startTimer(){vBanner.style.display='none';if(tMode==='work'&&!D.selectedTaskId){alert('Select a task.');return;}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();if(tState==='paused'){tState='running';updateControlsUI();tInterval=setInterval(tick,1000);return;}tState='running';updateControlsUI();tInterval=setInterval(tick,1000);}
+function startTimer(){vBanner.style.display='none';if(tMode==='work'&&!D.selectedTaskId){alert('Select a task.');return;}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();if(tState==='paused'){tState='running';updateControlsUI();tInterval=setInterval(tick,1000);return;}tState='running';updateControlsUI();tInterval=setInterval(tick,1000);}
 function pauseTimer(){tState='paused';clearInterval(tInterval);updateControlsUI();}
 function tick(){timeLeft--;if(timeLeft<=0){clearInterval(tInterval);timerComplete();return;}updateTimerDisplay();}
 
@@ -641,10 +710,27 @@ function autoFillNext(t){
   if((t.actual3||0)<(t.est3||0)){t.actual3=(t.actual3||0)+1;return;}
   t.estimate=(t.estimate||0)+1;t.actual1=(t.actual1||0)+1;
 }
+function notifyUser(msg){try{if('Notification' in window&&Notification.permission==='granted')new Notification('Pomodoro',{body:msg,icon:'/icons/icon-192x192.png'});}catch(e){}}
+function autoRecord(){
+  const date=liveDate();
+  const rec={date,pomos:D.todayPomos,
+    tasks:D.today.map(t=>({name:t.name,estimate:t.estimate,est2:t.est2||0,est3:t.est3||0,actual1:t.actual1||0,actual2:t.actual2||0,actual3:t.actual3||0,completed:t.completed,internalInt:t.internalInt,externalInt:t.externalInt,review:t.review||'',dayPomos:(t.dailyPomos&&t.dailyPomos[date])||0})),
+    unplanned:D.unplanned.map(t=>({name:t.name,completed:t.completed}))};
+  const idx=D.records.findIndex(r=>r.date===date);
+  if(idx>=0)D.records[idx]=rec;else D.records.push(rec);
+}
 function timerComplete(){
   playRing();
-  if(tMode==='work'){const t=D.today.find(x=>x.id===D.selectedTaskId);if(t)autoFillNext(t);D.todayPomos++;D.totalPomos++;D.setCount++;save();if(navigator.vibrate)navigator.vibrate([200,100,200]);if(D.setCount>=4){tMode='break';timeLeft=LB;totalTime=LB;tModeLabel.textContent='LONG BREAK';D.setCount=0;}else{tMode='break';timeLeft=SB;totalTime=SB;tModeLabel.textContent='SHORT BREAK';}}
-  else{tMode='work';timeLeft=WT;totalTime=WT;tModeLabel.textContent='FOCUS';}
+  if(tMode==='work'){
+    const now=liveDate();
+    if(now!==D.todayDate){autoRecord();D.todayDate=now;D.todayPomos=0;D.setCount=0;}
+    const t=D.today.find(x=>x.id===D.selectedTaskId);
+    if(t){autoFillNext(t);if(!t.dailyPomos)t.dailyPomos={};t.dailyPomos[now]=(t.dailyPomos[now]||0)+1;}
+    D.todayPomos++;D.totalPomos++;D.setCount++;
+    autoRecord();save();
+    if(navigator.vibrate)navigator.vibrate([200,100,200]);notifyUser('Pomodoro complete! Time for a break.');
+    if(D.setCount>=4){tMode='break';timeLeft=LB;totalTime=LB;tModeLabel.textContent='LONG BREAK';D.setCount=0;}else{tMode='break';timeLeft=SB;totalTime=SB;tModeLabel.textContent='SHORT BREAK';}}
+  else{notifyUser('Break over! Ready to focus.');tMode='work';timeLeft=WT;totalTime=WT;tModeLabel.textContent='FOCUS';}
   tState='idle';save();updateTimerDisplay();updateControlsUI();renderTimerTaskList();renderToday();updateSetCounter();updateStats();renderChart();
 }
 function voidPomodoro(){if(tMode!=='work')return;if(!confirm('Void this Pomodoro?'))return;clearInterval(tInterval);tState='idle';tMode='work';timeLeft=WT;totalTime=WT;tModeLabel.textContent='FOCUS';vBanner.style.display='block';updateTimerDisplay();updateControlsUI();}
@@ -667,11 +753,7 @@ document.getElementById('btn-int-ext').addEventListener('click',()=>markInterrup
 /* ═══════════════════════════════════════ */
 function endDay(){
   if(D.todayPomos===0&&!D.today.length){alert('Nothing to record.');return;}
-  const rec={date:D.todayDate,pomos:D.todayPomos,
-    tasks:D.today.map(t=>({name:t.name,estimate:t.estimate,est2:t.est2||0,est3:t.est3||0,actual1:t.actual1||0,actual2:t.actual2||0,actual3:t.actual3||0,completed:t.completed,internalInt:t.internalInt,externalInt:t.externalInt,review:t.review||''})),
-    unplanned:D.unplanned.map(t=>({name:t.name,completed:t.completed}))};
-  const idx=D.records.findIndex(r=>r.date===D.todayDate);
-  if(idx>=0)D.records[idx]=rec;else D.records.push(rec);
+  autoRecord();
   save();renderRecords();updateStats();renderChart();alert('Day recorded!');
 }
 function clearToday(){if(!confirm('Clear today?'))return;D.today=[];D.unplanned=[];D.selectedTaskId=null;save();renderToday();renderUnplanned();renderTimerTaskList();}
@@ -751,7 +833,7 @@ function renderRecords(){
     const done=r.tasks.filter(t=>t.completed).length;
     const ints=r.tasks.reduce((s,t)=>s+(t.internalInt||0)+(t.externalInt||0),0);
     return `<div class="day-record animate-in"><div class="day-record-header"><div class="day-record-date">${fmtDate(r.date)}</div><div class="day-record-count">🍅 ${r.pomos}</div></div><div class="day-record-tasks">${done}/${r.tasks.length} tasks · ${ints} int.${r.unplanned?.length?' · '+r.unplanned.length+' unplanned':''}<br>${r.tasks.map(t=>{
-      const ta=(t.actual1||0)+(t.actual2||0)+(t.actual3||0)||(t.actual||0);
+      const ta=t.dayPomos||(t.actual1||0)+(t.actual2||0)+(t.actual3||0)||(t.actual||0);
       const ei=[t.estimate?'□'+t.estimate:'',t.est2?'○'+t.est2:'',t.est3?'△'+t.est3:''].filter(Boolean).join(' ');
       return `<span style="color:${t.completed?'var(--green)':'var(--text3)'};">${t.completed?'✓':'○'} ${esc(t.name)} — ${ta}🍅 (${ei||'—'})${t.review?' 📝':''}</span>`;
     }).join('<br>')}</div></div>`;
@@ -764,6 +846,9 @@ function updateStats(){
     const tot=D.records.reduce((s,r)=>s+r.pomos,0);
     document.getElementById('stat-avg').textContent=Math.round(tot/D.records.length*10)/10;
     let streak=0,cd=new Date();
+    const hasToday=D.records.some(r=>r.date===TODAY);
+    if(!hasToday&&D.todayPomos>0){streak=1;cd.setDate(cd.getDate()-1);}
+    else if(!hasToday){cd.setDate(cd.getDate()-1);}
     for(let i=0;i<365;i++){const d=cd.toISOString().split('T')[0];if(D.records.some(r=>r.date===d)){streak++;cd.setDate(cd.getDate()-1);}else break;}
     document.getElementById('stat-streak').textContent=streak;
   }
@@ -799,6 +884,8 @@ function importData(file){
       if(D.totalPomos===undefined)D.totalPomos=0;
       if(!D.unplanned)D.unplanned=[];
       if(!D.records)D.records=[];
+      if(!D.completed)D.completed=[];
+      if(!D.trash)D.trash=[];
       save();renderAll();renderChart();
       alert('Data imported successfully!');
     }catch(err){alert('Error reading file: '+err.message);}
@@ -819,6 +906,7 @@ document.getElementById('btn-confirm-pick').addEventListener('click',()=>{if(!pi
 document.getElementById('picker-est-input').addEventListener('keypress',e=>{if(e.key==='Enter')document.getElementById('btn-confirm-pick').click();});
 document.getElementById('btn-end-day').addEventListener('click',endDay);
 document.getElementById('btn-clear-day').addEventListener('click',clearToday);
+document.getElementById('btn-empty-trash').addEventListener('click',()=>{if(!confirm('Permanently delete all trashed tasks?'))return;D.trash=[];save();renderTrash();});
 document.getElementById('btn-export').addEventListener('click',exportData);
 document.getElementById('btn-import').addEventListener('click',()=>document.getElementById('file-import').click());
 document.getElementById('file-import').addEventListener('change',e=>{if(e.target.files[0])importData(e.target.files[0]);e.target.value='';});
@@ -832,7 +920,7 @@ document.getElementById('unplanned-input').addEventListener('keypress',e=>{if(e.
 document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
 window.addEventListener('resize',()=>renderChart());
 
-function renderAll(){renderInventory();renderToday();renderUnplanned();renderTimerTaskList();renderRecords();updateStats();updateSetCounter();updateTimerDisplay();renderChart();}
+function renderAll(){renderInventory();renderCompleted();renderTrash();renderToday();renderUnplanned();renderTimerTaskList();renderRecords();updateStats();updateSetCounter();updateTimerDisplay();renderChart();}
 applyTheme();renderAll();updateControlsUI();
 
 // Register Service Worker for PWA
@@ -861,7 +949,7 @@ async function manualSync(btn){
       const ct=cloud.lastModified||0,lt=D.lastModified||0;
       if(ct>lt){
         D=cloud;try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}
-        D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});renderAll();
+        D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});if(!D.completed)D.completed=[];if(!D.trash)D.trash=[];renderAll();
         showSyncToast('Pulled from cloud',true);
       }else{
         const ok=await cloudSave();
