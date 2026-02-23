@@ -8,6 +8,22 @@ export function save(){D.lastModified=Date.now();try{localStorage.setItem(getSK(
 
 export function mig(t){if(t.actual1===undefined){t.actual1=t.actual||0;t.actual2=0;t.actual3=0;}if(t.est2===undefined)t.est2=0;if(t.est3===undefined)t.est3=0;if(t.review===undefined)t.review='';if(t.estimate===undefined)t.estimate=0;if(!t.dailyPomos)t.dailyPomos={};delete t.actual;return t;}
 
+export function ensureFields(){
+  if(!D.inventory)D.inventory=[];
+  if(!D.today)D.today=[];
+  if(!D.unplanned)D.unplanned=[];
+  if(!D.records)D.records=[];
+  if(!D.completed)D.completed=[];
+  if(!D.trash)D.trash=[];
+  if(D.todayPomos===undefined)D.todayPomos=0;
+  if(D.setCount===undefined)D.setCount=0;
+  if(D.totalPomos===undefined)D.totalPomos=0;
+  if(!D.todayDate)D.todayDate=TODAY;
+  D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});
+  D.today.forEach(mig);
+  D.completed.forEach(t=>{if(t.review===undefined)t.review='';});
+}
+
 export let D=load();
 export function replaceD(newD){D=newD;}
 
@@ -17,11 +33,7 @@ export function setPickerSelectedId(val){pickerSelectedId=val;}
 export const TODAY=new Date().toISOString().split('T')[0];
 
 /* ── Data initialization / migration ── */
-D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});
-D.today.forEach(mig);
-if(!D.completed)D.completed=[];
-if(!D.trash)D.trash=[];
-D.completed.forEach(t=>{if(t.review===undefined)t.review='';});
+ensureFields();
 if(D.todayDate!==TODAY){D.todayDate=TODAY;D.todayPomos=0;D.setCount=0;save();}
 
 /* ── Cloud sync ── */
@@ -51,7 +63,7 @@ export async function switchUserData(migrateAnon){
   const cloud=await cloudLoad();
   if(cloud){const ct=cloud.lastModified||0,lt=D.lastModified||0;if(ct>lt){D=cloud;try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}}else if(lt>ct){cloudSave();}}
   else if(migrateAnon){cloudSave();}
-  D.today.forEach(mig);D.inventory.forEach(t=>{if(t.review===undefined)t.review='';});
+  ensureFields();
   if(D.todayDate!==TODAY){D.todayDate=TODAY;D.todayPomos=0;D.setCount=0;save();}
 }
 
