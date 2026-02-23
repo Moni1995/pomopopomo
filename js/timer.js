@@ -9,6 +9,7 @@ import { renderChart } from './chart.js';
 /* ═══════════════════════════════════════ */
 const WT=25*60, SB=5*60, LB=20*60, CIRC=2*Math.PI*90;
 let tState='idle', tMode='work', timeLeft=WT, totalTime=WT, tInterval=null;
+let wallStart=0, wallTimeLeft=0; // wall-clock tracking for accuracy
 
 /* DOM references (safe — ES modules are deferred) */
 const tProg=document.getElementById('timer-progress');
@@ -42,18 +43,22 @@ export function startTimer(){
   if(tMode==='work'&&!D.selectedTaskId){alert('Select a task.');return;}
   resumeAudio();
   if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();
-  if(tState==='paused'){tState='running';updateControlsUI();tInterval=setInterval(tick,1000);return;}
-  tState='running';updateControlsUI();tInterval=setInterval(tick,1000);
+  wallStart=Date.now();wallTimeLeft=timeLeft;
+  tState='running';updateControlsUI();tInterval=setInterval(tick,250);
 }
 
 export function pauseTimer(){
-  tState='paused';clearInterval(tInterval);updateControlsUI();
+  const elapsed=Math.floor((Date.now()-wallStart)/1000);
+  timeLeft=Math.max(0,wallTimeLeft-elapsed);
+  tState='paused';clearInterval(tInterval);updateTimerDisplay();updateControlsUI();
 }
 
 export function tick(){
-  timeLeft--;
+  const elapsed=Math.floor((Date.now()-wallStart)/1000);
+  const prev=timeLeft;
+  timeLeft=Math.max(0,wallTimeLeft-elapsed);
   if(timeLeft<=0){clearInterval(tInterval);timerComplete();return;}
-  updateTimerDisplay();
+  if(timeLeft!==prev)updateTimerDisplay();
 }
 
 /* ═══════════════════════════════════════ */
