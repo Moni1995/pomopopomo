@@ -3,7 +3,7 @@
 /* ═══════════════════════════════════════════════════════════════ */
 
 import { D, save, replaceD, fresh, mig, load, getSK, TODAY, autoRecord,
-         pickerSelectedId, setPickerSelectedId,
+         pickerSelectedIds, clearPickerSelectedIds, togglePickerSelectedId,
          showSyncToast, cloudSave, cloudLoad, switchUserData,
          debouncedCloudSave, ensureFields } from './store.js';
 import { uid, esc, fmtDate, totalActual, liveDate } from './utils.js';
@@ -72,7 +72,7 @@ document.addEventListener('click', function (e) {
       if (src !== 'inv') { D.todayPomos++; D.totalPomos++; }
     }
     save(); playTick();
-    if (src === 'inv') renderInventory(); else { renderToday(); renderTimerTaskList(); updateStats(); renderChart(); }
+    if (src === 'inv') renderInventory(); else { autoRecord(); renderToday(); renderTimerTaskList(); updateStats(); renderChart(); renderRecords(); }
   }
   else if (action === 'adj-est') {
     const lv = parseInt(el.dataset.level), delta = parseInt(el.dataset.delta);
@@ -97,14 +97,25 @@ document.addEventListener('click', function (e) {
         const idx = D.completed.findIndex(x => x.id === t.invId);
         if (idx >= 0) { const inv = D.completed.splice(idx, 1)[0]; inv.completed = false; D.inventory.push(inv); }
       }
+    } else {
+      if (t.completed) {
+        const compEntry = { id: uid(), name: t.name, completed: true, review: t.review || '' };
+        D.completed.push(compEntry);
+        t.completedId = compEntry.id;
+      } else {
+        if (t.completedId) {
+          D.completed = D.completed.filter(c => c.id !== t.completedId);
+          delete t.completedId;
+        }
+      }
     }
-    save(); renderToday(); renderTimerTaskList(); renderInventory(); renderCompleted();
+    autoRecord(); save(); renderToday(); renderTimerTaskList(); renderInventory(); renderCompleted(); renderRecords();
   }
   else if (action === 'remove-today') {
     const t = D.today.find(x => x.id === id);
     if (t) { D.today = D.today.filter(x => x.id !== id); t.deletedFrom = 'today'; D.trash.push(t); }
     if (D.selectedTaskId === id) D.selectedTaskId = null;
-    save(); renderToday(); renderTimerTaskList(); renderTrash();
+    autoRecord(); save(); renderToday(); renderTimerTaskList(); renderTrash(); renderRecords();
   }
   else if (action === 'remove-inv') {
     const idx = D.inventory.findIndex(t => t.id === id);
@@ -139,10 +150,8 @@ document.addEventListener('click', function (e) {
   else if (action === 'send-today') { sendToToday(id); }
   else if (action === 'select-timer-task') { D.selectedTaskId = id; save(); renderTimerTaskList(); }
   else if (action === 'pick-inv') {
-    setPickerSelectedId(id);
-    document.querySelectorAll('#inv-picker-list .task-option').forEach(o => o.classList.toggle('selected', o.dataset.id === id));
-    document.getElementById('picker-est-row').style.display = 'block';
-    document.getElementById('picker-est-input').focus();
+    togglePickerSelectedId(id);
+    document.querySelectorAll('#inv-picker-list .task-option').forEach(o => o.classList.toggle('selected', pickerSelectedIds.has(o.dataset.id)));
   }
   else if (action === 'toggle-unplanned') {
     const t = D.unplanned.find(x => x.id === id);
@@ -163,6 +172,42 @@ document.addEventListener('click', function (e) {
     if (area) area.classList.remove('open');
     if (src === 'inv') renderInventory(); else renderToday();
   }
+  else if (action === 'toggle-subtask') {
+    const t = D.today.find(x => x.id === id);
+    if (!t || !t.subtasks) return;
+    const subId = el.dataset.subid;
+    const sub = t.subtasks.find(s => s.id === subId);
+    if (sub) { sub.completed = !sub.completed; autoRecord(); save(); renderToday(); renderRecords(); }
+  }
+  else if (action === 'remove-subtask') {
+    const t = D.today.find(x => x.id === id);
+    if (!t || !t.subtasks) return;
+    const subId = el.dataset.subid;
+    t.subtasks = t.subtasks.filter(s => s.id !== subId);
+    save(); renderToday();
+  }
+  else if (action === 'add-subtask') {
+    const t = D.today.find(x => x.id === id);
+    if (!t) return;
+    const input = document.getElementById('subtask-input-' + id);
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) return;
+    if (!t.subtasks) t.subtasks = [];
+    t.subtasks.push({ id: uid(), name, completed: false });
+    input.value = '';
+    autoRecord(); save(); renderToday(); renderRecords();
+  }
+  else if (action === 'cycle-priority') {
+    const list = src === 'inv' ? D.inventory : D.today;
+    const t = list.find(x => x.id === id);
+    if (!t) return;
+    const cycle = [null, 'low', 'medium', 'high'];
+    const curIdx = cycle.indexOf(t.priority);
+    t.priority = cycle[(curIdx + 1) % cycle.length];
+    save();
+    if (src === 'inv') renderInventory(); else { renderToday(); renderTimerTaskList(); }
+  }
   else if (action === 'set-theme') {
     setCurTheme(el.dataset.id);
     applyTheme(); renderThemeGrid(); setTimeout(renderChart, 50);
@@ -179,7 +224,7 @@ function addInventoryTask() {
   const inp = document.getElementById('inv-task-input');
   const name = inp.value.trim();
   if (!name) return;
-  D.inventory.push({ id: uid(), name, completed: false, review: '' });
+  D.inventory.push({ id: uid(), name, completed: false, review: '', priority: null });
   inp.value = '';
   save(); renderInventory(); inp.focus();
 }
@@ -188,20 +233,17 @@ function sendToToday(invId, est) {
   const task = D.inventory.find(t => t.id === invId);
   if (!task) return;
   if (D.today.some(t => t.invId === invId)) { alert('Already on list.'); return; }
-  D.today.push({ id: uid(), invId, name: task.name, estimate: est || 0, est2: 0, est3: 0, actual1: 0, actual2: 0, actual3: 0, internalInt: 0, externalInt: 0, completed: false, review: task.review || '', dailyPomos: {} });
-  save(); renderToday(); renderTimerTaskList();
+  D.today.push({ id: uid(), invId, name: task.name, estimate: est || 0, est2: 0, est3: 0, actual1: 0, actual2: 0, actual3: 0, internalInt: 0, externalInt: 0, completed: false, review: task.review || '', dailyPomos: {}, subtasks: [], priority: null });
+  autoRecord(); save(); renderToday(); renderTimerTaskList(); renderRecords();
 }
 
 function openInventoryPicker() {
-  setPickerSelectedId(null);
+  clearPickerSelectedIds();
   const list = document.getElementById('inv-picker-list');
-  const estRow = document.getElementById('picker-est-row');
-  estRow.style.display = 'none';
-  document.getElementById('picker-est-input').value = '';
   const avail = D.inventory.filter(t => !D.today.some(td => td.invId === t.id));
   list.innerHTML = !avail.length
     ? '<div class="empty-state" style="padding:20px;"><p>No available tasks.</p></div>'
-    : avail.map(t => `<div class="task-option" data-action="pick-inv" data-id="${t.id}"><div class="task-option-radio"></div><div><div class="task-option-text">${esc(t.name)}</div></div></div>`).join('');
+    : avail.map(t => `<div class="task-option" data-action="pick-inv" data-id="${t.id}"><div class="task-option-checkbox"></div><div><div class="task-option-text">${esc(t.name)}</div></div></div>`).join('');
   document.getElementById('modal-inv-picker').classList.add('open');
 }
 
@@ -214,9 +256,9 @@ function addTodayTask() {
   if (!name) return;
   const est = parseInt(ei.value) || 0;
   if (est > 7) { alert('Break down tasks >7.'); return; }
-  D.today.push({ id: uid(), invId: null, name, estimate: est, est2: 0, est3: 0, actual1: 0, actual2: 0, actual3: 0, internalInt: 0, externalInt: 0, completed: false, review: '', dailyPomos: {} });
+  D.today.push({ id: uid(), invId: null, name, estimate: est, est2: 0, est3: 0, actual1: 0, actual2: 0, actual3: 0, internalInt: 0, externalInt: 0, completed: false, review: '', dailyPomos: {}, subtasks: [], priority: null });
   inp.value = ''; ei.value = '';
-  save(); renderToday(); renderTimerTaskList(); inp.focus();
+  autoRecord(); save(); renderToday(); renderTimerTaskList(); renderRecords(); inp.focus();
 }
 
 function addUnplannedTask() {
@@ -229,14 +271,8 @@ function addUnplannedTask() {
 }
 
 /* ═══════════════════════════════════════ */
-/* END DAY / CLEAR                        */
+/* CLEAR TODAY                             */
 /* ═══════════════════════════════════════ */
-function endDay() {
-  if (D.todayPomos === 0 && !D.today.length) { alert('Nothing to record.'); return; }
-  autoRecord();
-  save(); renderRecords(); updateStats(); renderChart(); alert('Day recorded!');
-}
-
 function clearToday() {
   if (!confirm('Clear today?')) return;
   D.today = []; D.unplanned = []; D.selectedTaskId = null;
@@ -329,20 +365,16 @@ document.getElementById('inv-task-input').addEventListener('keypress', e => { if
 document.getElementById('btn-pick-inv').addEventListener('click', openInventoryPicker);
 document.getElementById('btn-close-picker').addEventListener('click', () => document.getElementById('modal-inv-picker').classList.remove('open'));
 document.getElementById('btn-confirm-pick').addEventListener('click', () => {
-  if (!pickerSelectedId) return;
-  const est = parseInt(document.getElementById('picker-est-input').value) || 0;
-  if (est > 7) { alert('Break down tasks >7.'); return; }
-  sendToToday(pickerSelectedId, est);
+  if (!pickerSelectedIds.size) return;
+  pickerSelectedIds.forEach(id => sendToToday(id, 0));
   document.getElementById('modal-inv-picker').classList.remove('open');
 });
-document.getElementById('picker-est-input').addEventListener('keypress', e => { if (e.key === 'Enter') document.getElementById('btn-confirm-pick').click(); });
 
 // Today
 document.getElementById('btn-add-today').addEventListener('click', addTodayTask);
 document.getElementById('today-task-input').addEventListener('keypress', e => { if (e.key === 'Enter') addTodayTask(); });
 document.getElementById('btn-add-unplanned').addEventListener('click', addUnplannedTask);
 document.getElementById('unplanned-input').addEventListener('keypress', e => { if (e.key === 'Enter') addUnplannedTask(); });
-document.getElementById('btn-end-day').addEventListener('click', endDay);
 document.getElementById('btn-clear-day').addEventListener('click', clearToday);
 document.getElementById('btn-empty-trash').addEventListener('click', () => {
   if (!confirm('Permanently delete all trashed tasks?')) return;

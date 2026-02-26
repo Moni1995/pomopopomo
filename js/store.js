@@ -6,7 +6,7 @@ export function load(){try{const r=localStorage.getItem(getSK());if(r)return JSO
 export function fresh(){return{inventory:[],today:[],unplanned:[],records:[],completed:[],trash:[],selectedTaskId:null,todayDate:new Date().toISOString().split('T')[0],todayPomos:0,setCount:0,totalPomos:0};}
 export function save(){D.lastModified=Date.now();try{localStorage.setItem(getSK(),JSON.stringify(D));}catch(e){}debouncedCloudSave();}
 
-export function mig(t){if(t.actual1===undefined){t.actual1=t.actual||0;t.actual2=0;t.actual3=0;}if(t.est2===undefined)t.est2=0;if(t.est3===undefined)t.est3=0;if(t.review===undefined)t.review='';if(t.estimate===undefined)t.estimate=0;if(!t.dailyPomos)t.dailyPomos={};delete t.actual;return t;}
+export function mig(t){if(t.actual1===undefined){t.actual1=t.actual||0;t.actual2=0;t.actual3=0;}if(t.est2===undefined)t.est2=0;if(t.est3===undefined)t.est3=0;if(t.review===undefined)t.review='';if(t.estimate===undefined)t.estimate=0;if(!t.dailyPomos)t.dailyPomos={};if(t.subtasks===undefined)t.subtasks=[];if(t.priority===undefined)t.priority=null;delete t.actual;return t;}
 
 export function ensureFields(){
   if(!D.inventory)D.inventory=[];
@@ -27,8 +27,10 @@ export function ensureFields(){
 export let D=load();
 export function replaceD(newD){D=newD;}
 
-export let pickerSelectedId=null;
-export function setPickerSelectedId(val){pickerSelectedId=val;}
+export let pickerSelectedIds=new Set();
+export function setPickerSelectedIds(val){pickerSelectedIds=val;}
+export function clearPickerSelectedIds(){pickerSelectedIds.clear();}
+export function togglePickerSelectedId(id){if(pickerSelectedIds.has(id))pickerSelectedIds.delete(id);else pickerSelectedIds.add(id);}
 
 export const TODAY=new Date().toISOString().split('T')[0];
 
@@ -71,7 +73,7 @@ export async function switchUserData(migrateAnon){
 export function autoRecord(){
   const date=liveDate();
   const rec={date,pomos:D.todayPomos,
-    tasks:D.today.map(t=>({name:t.name,estimate:t.estimate,est2:t.est2||0,est3:t.est3||0,actual1:t.actual1||0,actual2:t.actual2||0,actual3:t.actual3||0,completed:t.completed,internalInt:t.internalInt,externalInt:t.externalInt,review:t.review||'',dayPomos:(t.dailyPomos&&t.dailyPomos[date])||0})),
+    tasks:D.today.map(t=>({name:t.name,estimate:t.estimate,est2:t.est2||0,est3:t.est3||0,actual1:t.actual1||0,actual2:t.actual2||0,actual3:t.actual3||0,completed:t.completed,internalInt:t.internalInt,externalInt:t.externalInt,review:t.review||'',dayPomos:(t.dailyPomos&&t.dailyPomos[date])||0,subtasks:t.subtasks?t.subtasks.map(s=>({name:s.name,completed:s.completed})):[]})),
     unplanned:D.unplanned.map(t=>({name:t.name,completed:t.completed}))};
   const idx=D.records.findIndex(r=>r.date===date);
   if(idx>=0)D.records[idx]=rec;else D.records.push(rec);

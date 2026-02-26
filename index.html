@@ -58,7 +58,7 @@
   </div>
   <div class="section" style="padding-top:0;"><div class="section-subtitle">Planned Tasks</div><div id="today-tasks"></div><div class="empty-state" id="today-empty"><p>Plan your day.</p></div></div>
   <div class="section"><div class="section-subtitle">Unplanned & Urgent</div><div id="unplanned-tasks"></div><div class="input-row"><input type="text" id="unplanned-input" placeholder="Unplanned task…"><button class="btn btn-ghost btn-sm" id="btn-add-unplanned">Add</button></div></div>
-  <div class="section"><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" id="btn-end-day" style="flex:1;">📊 End Day</button><button class="btn btn-ghost btn-sm" id="btn-clear-day" style="flex:1;">🗑 Clear</button></div></div>
+  <div class="section"><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" id="btn-clear-day" style="flex:1;">🗑 Clear Today</button></div></div>
 </div>
 
 <!-- INVENTORY -->
@@ -116,7 +116,7 @@
 </div>
 
 <!-- MODALS -->
-<div class="modal-overlay" id="modal-inv-picker"><div class="modal"><h2>Pick from Inventory</h2><div id="inv-picker-list"></div><div id="picker-est-row" style="display:none;margin-top:12px;"><div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Initial estimate (Pomodoros):</div><div class="input-row"><input type="number" id="picker-est-input" placeholder="🍅" min="1" max="20" style="width:70px;"><button class="btn btn-primary" id="btn-confirm-pick">Add to Today</button></div></div><div class="modal-actions"><button class="btn btn-ghost" id="btn-close-picker">Cancel</button></div></div></div>
+<div class="modal-overlay" id="modal-inv-picker"><div class="modal"><h2>Pick from Inventory</h2><div id="inv-picker-list"></div><div class="modal-actions"><button class="btn btn-ghost" id="btn-close-picker">Cancel</button><button class="btn btn-primary" id="btn-confirm-pick">Add Selected</button></div></div></div>
 <div class="modal-overlay" id="modal-theme"><div class="modal"><h2>🎨 Theme</h2><div class="section-subtitle">Style</div><div class="theme-grid" id="theme-grid"></div><div class="section-subtitle">Mode</div><div class="mode-toggle"><button class="mode-toggle-btn" data-mode="dark" id="mode-dark">🌙 Dark</button><button class="mode-toggle-btn" data-mode="light" id="mode-light">☀️ Light</button></div><div class="modal-actions"><button class="btn btn-ghost" id="btn-close-theme">Done</button></div></div></div>
 
 <!-- NAV -->

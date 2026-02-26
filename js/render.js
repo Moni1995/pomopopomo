@@ -1,6 +1,23 @@
-import { D, TODAY } from './store.js';
+import { D, TODAY, save } from './store.js';
 import { esc, fmtDate, totalActual } from './utils.js';
 import { renderAllShapes, renderIntMarks, renderReview } from './shapes.js';
+
+function renderPriority(t,src){
+  const p=t.priority;
+  if(!p)return '';
+  return `<div class="priority-dot priority-${p}" data-action="cycle-priority" data-id="${t.id}" data-src="${src}" title="Priority: ${p}"></div>`;
+}
+
+function renderSubtasks(t){
+  if(!t.subtasks||!t.subtasks.length)return '';
+  const completed=t.subtasks.filter(s=>s.completed).length;
+  let h=`<div class="subtasks-section"><div class="subtasks-header">${completed}/${t.subtasks.length} subtasks</div>`;
+  t.subtasks.forEach(s=>{
+    h+=`<div class="subtask-item"><div class="subtask-check ${s.completed?'checked':''}" data-action="toggle-subtask" data-id="${t.id}" data-subid="${s.id}"></div><span class="subtask-name ${s.completed?'completed':''}">${esc(s.name)}</span><button class="subtask-remove" data-action="remove-subtask" data-id="${t.id}" data-subid="${s.id}">×</button></div>`;
+  });
+  h+=`<div class="subtask-add-row"><input type="text" id="subtask-input-${t.id}" placeholder="Add subtask..."><button class="btn btn-ghost btn-sm" data-action="add-subtask" data-id="${t.id}">+</button></div></div>`;
+  return h;
+}
 
 export function renderInventory(){
   const c=document.getElementById('inventory-tasks'),e=document.getElementById('inv-empty');
@@ -10,7 +27,7 @@ export function renderInventory(){
   c.innerHTML=tasks.map(t=>`
     <div class="task-item animate-in">
       <div class="task-content">
-        <div class="task-name">${esc(t.name)}</div>
+        <div class="task-name">${esc(t.name)} ${renderPriority(t,'inv')}</div>
         ${renderReview(t,'inv')}
       </div>
       <div class="task-actions">
@@ -58,16 +75,33 @@ export function renderToday(){
   if(!D.today.length){c.innerHTML='';e.style.display='block';return;}
   e.style.display='none';
   c.innerHTML=D.today.map(t=>`
-    <div class="task-item ${t.completed?'completed':''} animate-in">
+    <div class="task-item ${t.completed?'completed':''} animate-in" data-task-id="${t.id}" draggable="true">
+      <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
       <div class="task-check ${t.completed?'checked':''}" data-action="toggle-done" data-id="${t.id}"></div>
       <div class="task-content">
-        <div class="task-name">${esc(t.name)}</div>
+        <div class="task-name">${esc(t.name)} ${renderPriority(t,'today')}</div>
         ${renderAllShapes(t,'today')}
         <div class="task-meta">${renderIntMarks(t)}</div>
+        ${!t.completed?renderSubtasks(t):''}
         ${!t.completed?renderReview(t,'today'):''}
       </div>
       <button class="btn-icon btn-icon-sm" data-action="remove-today" data-id="${t.id}" title="Remove" style="align-self:flex-start;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>`).join('');
+  initDragDrop();
+}
+
+let draggedTaskId=null;
+
+export function initDragDrop(){
+  const container=document.getElementById('today-tasks');
+  if(!container)return;
+  container.querySelectorAll('.task-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{draggedTaskId=item.dataset.taskId;item.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    item.addEventListener('dragend',()=>{item.classList.remove('dragging');container.querySelectorAll('.task-item').forEach(i=>i.classList.remove('drag-over'));draggedTaskId=null;});
+    item.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';item.classList.add('drag-over');});
+    item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+    item.addEventListener('drop',e=>{e.preventDefault();item.classList.remove('drag-over');if(!draggedTaskId||draggedTaskId===item.dataset.taskId)return;const fromIdx=D.today.findIndex(t=>t.id===draggedTaskId);const toIdx=D.today.findIndex(t=>t.id===item.dataset.taskId);if(fromIdx<0||toIdx<0)return;const [moved]=D.today.splice(fromIdx,1);D.today.splice(toIdx,0,moved);save();renderToday();renderTimerTaskList();});
+  });
 }
 
 export function renderUnplanned(){document.getElementById('unplanned-tasks').innerHTML=D.unplanned.map(t=>`<div class="task-item ${t.completed?'completed':''}"><div class="task-check ${t.completed?'checked':''}" data-action="toggle-unplanned" data-id="${t.id}"></div><div class="task-content"><div class="task-name">${esc(t.name)}</div><div class="task-meta"><span class="tag tag-urgent">⚡ Unplanned</span></div></div></div>`).join('');}
@@ -95,7 +129,8 @@ export function renderRecords(){
     return `<div class="day-record animate-in"><div class="day-record-header"><div class="day-record-date">${fmtDate(r.date)}</div><div class="day-record-count">🍅 ${r.pomos}</div></div><div class="day-record-tasks">${done}/${r.tasks.length} tasks · ${ints} int.${r.unplanned?.length?' · '+r.unplanned.length+' unplanned':''}<br>${r.tasks.map(t=>{
       const ta=t.dayPomos||(t.actual1||0)+(t.actual2||0)+(t.actual3||0)||(t.actual||0);
       const ei=[t.estimate?'□'+t.estimate:'',t.est2?'○'+t.est2:'',t.est3?'△'+t.est3:''].filter(Boolean).join(' ');
-      return `<span style="color:${t.completed?'var(--green)':'var(--text3)'};">${t.completed?'✓':'○'} ${esc(t.name)} — ${ta}🍅 (${ei||'—'})${t.review?' 📝':''}</span>`;
+      const subInfo=t.subtasks?` · ${t.subtasks.filter(s=>s.completed).length}/${t.subtasks.length} sub`:'';
+      return `<span style="color:${t.completed?'var(--green)':'var(--text3)'};">${t.completed?'✓':'○'} ${esc(t.name)} — ${ta}🍅 (${ei||'—'})${subInfo}${t.review?' 📝':''}</span>`;
     }).join('<br>')}</div></div>`;
   }).join('');
 }
