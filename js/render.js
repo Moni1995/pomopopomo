@@ -129,7 +129,7 @@ export function renderRecords(){
     return `<div class="day-record animate-in"><div class="day-record-header"><div class="day-record-date">${fmtDate(r.date)}</div><div class="day-record-count">🍅 ${r.pomos}</div></div><div class="day-record-tasks">${done}/${r.tasks.length} tasks · ${ints} int.${r.unplanned?.length?' · '+r.unplanned.length+' unplanned':''}<br>${r.tasks.map(t=>{
       const ta=t.dayPomos||(t.actual1||0)+(t.actual2||0)+(t.actual3||0)||(t.actual||0);
       const ei=[t.estimate?'□'+t.estimate:'',t.est2?'○'+t.est2:'',t.est3?'△'+t.est3:''].filter(Boolean).join(' ');
-      const subInfo=t.subtasks?` · ${t.subtasks.filter(s=>s.completed).length}/${t.subtasks.length} sub`:'';
+      const subInfo=t.subtasks&&t.subtasks.length?` · ${t.subtasks.filter(s=>s.completed).length}/${t.subtasks.length} sub`:'';
       return `<span style="color:${t.completed?'var(--green)':'var(--text3)'};">${t.completed?'✓':'○'} ${esc(t.name)} — ${ta}🍅 (${ei||'—'})${subInfo}${t.review?' 📝':''}</span>`;
     }).join('<br>')}</div></div>`;
   }).join('');
